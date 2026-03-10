@@ -85,8 +85,25 @@ GET  https://api.runpod.ai/v2/{ENDPOINT_ID}/status/{JOB_ID}
 | `temperature` | `float` | `0` | Sampling temperature (0 = greedy, deterministic) |
 | `vad_onset` | `float` | `0.500` | VAD onset threshold |
 | `vad_offset` | `float` | `0.363` | VAD offset threshold |
+| `output_format` | `list[string]` | `["json"]` | Output formats to return. Any combination of `"json"`, `"srt"`, `"vtt"` |
 
-### Example request
+### Example requests
+
+**Transcription only (default):**
+
+```bash
+curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
+  -H "Authorization: Bearer $RUNPOD_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "audio": "https://example.com/audio.mp3",
+      "language": "ru"
+    }
+  }'
+```
+
+**Full pipeline with multiple output formats:**
 
 ```bash
 curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
@@ -98,46 +115,44 @@ curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
       "language": "ru",
       "align_output": true,
       "diarization": true,
-      "max_speakers": 3
+      "max_speakers": 3,
+      "output_format": ["json", "srt", "vtt"]
     }
   }'
 ```
 
-### Example response
+### Example responses
 
-**With `align_output: true` and `diarization: true`:**
+**`output_format: ["json"]` (default) with `align_output: true` and `diarization: true`:**
 
 ```json
 {
   "detected_language": "ru",
-  "segments": [
-    {
-      "start": 0.0,
-      "end": 4.5,
-      "text": "Привет, как дела?",
-      "speaker": "SPEAKER_00",
-      "words": [
-        { "word": "Привет,", "start": 0.0, "end": 0.7, "score": 0.99 },
-        { "word": "как",     "start": 0.8, "end": 1.1, "score": 0.97 },
-        { "word": "дела?",   "start": 1.2, "end": 1.8, "score": 0.95 }
-      ]
-    }
-  ]
+  "json": {
+    "segments": [
+      {
+        "start": 0.0,
+        "end": 4.5,
+        "text": "Привет, как дела?",
+        "speaker": "SPEAKER_00",
+        "words": [
+          { "word": "Привет,", "start": 0.0, "end": 0.7, "score": 0.99 },
+          { "word": "как",     "start": 0.8, "end": 1.1, "score": 0.97 },
+          { "word": "дела?",   "start": 1.2, "end": 1.8, "score": 0.95 }
+        ]
+      }
+    ]
+  }
 }
 ```
 
-**With default settings (transcription only):**
+**`output_format: ["srt", "vtt"]`:**
 
 ```json
 {
   "detected_language": "ru",
-  "segments": [
-    {
-      "start": 0.0,
-      "end": 4.5,
-      "text": "Привет, как дела?"
-    }
-  ]
+  "srt": "1\n00:00:00,000 --> 00:00:04,500\nПривет, как дела?\n\n",
+  "vtt": "WEBVTT\n\n00:00:00.000 --> 00:00:04.500\nПривет, как дела?\n\n"
 }
 ```
 

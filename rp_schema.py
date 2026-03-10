@@ -53,4 +53,9 @@ INPUT_VALIDATIONS = {
         "required": False,
         "default": 0.363,
     },
+    "output_format": {
+        "type": list,
+        "required": False,
+        "default": ["json"],
+    },
 }

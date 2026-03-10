@@ -1,5 +1,6 @@
 import base64
 import gc
+import io
 import logging
 import os
 import shutil
@@ -13,6 +14,7 @@ from runpod.serverless.utils import download_files_from_urls, rp_cleanup
 import whisperx
 from whisperx.alignment import DEFAULT_ALIGN_MODELS_TORCH, DEFAULT_ALIGN_MODELS_HF
 from whisperx.diarize import DiarizationPipeline, assign_word_speakers
+from whisperx.utils import WriteSRT, WriteVTT
 
 from rp_schema import INPUT_VALIDATIONS
 
@@ -102,6 +104,10 @@ def handler(job):
     temperature = job_input.get("temperature", 0)
     vad_onset = job_input.get("vad_onset", 0.500)
     vad_offset = job_input.get("vad_offset", 0.363)
+    output_format = job_input.get("output_format", ["json"])
+    if isinstance(output_format, str):
+        output_format = [output_format]
+    output_format = [f.lower() for f in output_format]
 
     try:
         audio_path = _resolve_audio(audio_input, job_id)
@@ -154,10 +160,27 @@ def handler(job):
             torch.cuda.empty_cache()
             logger.info("Diarization done.")
 
-        output = {
-            "segments": result["segments"],
-            "detected_language": detected_language,
+        output = {"detected_language": detected_language}
+
+        subtitle_options = {
+            "max_line_width": None,
+            "max_line_count": None,
+            "highlight_words": False,
         }
+
+        for fmt in output_format:
+            if fmt == "json":
+                output["json"] = {"segments": result["segments"]}
+            elif fmt == "srt":
+                sio = io.StringIO()
+                WriteSRT(".").write_result(result, file=sio, options=subtitle_options)
+                output["srt"] = sio.getvalue()
+            elif fmt == "vtt":
+                sio = io.StringIO()
+                WriteVTT(".").write_result(result, file=sio, options=subtitle_options)
+                output["vtt"] = sio.getvalue()
+            else:
+                logger.warning(f"Unknown output format '{fmt}', skipping.")
 
     except Exception as e:
         logger.error(f"Job {job_id} failed: {e}", exc_info=True)

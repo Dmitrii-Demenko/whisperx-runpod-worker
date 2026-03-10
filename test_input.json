@@ -1,0 +1,10 @@
+{
+  "input": {
+    "audio": "https://huggingface.co/datasets/Narsil/asr_dummy/resolve/main/1.flac",
+    "language": null,
+    "batch_size": 16,
+    "align_output": true,
+    "diarization": false,
+    "temperature": 0
+  }
+}

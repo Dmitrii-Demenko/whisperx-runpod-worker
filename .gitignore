@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Results / test output
+results/
+
+# Environment secrets
+.env
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker build cache
+.docker/

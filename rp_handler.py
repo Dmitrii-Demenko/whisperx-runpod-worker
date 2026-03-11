@@ -72,6 +72,23 @@ def _resolve_audio(audio_input: str, job_id: str) -> str:
     return path
 
 
+def _inject_speakers(segments: list, fmt: str) -> list:
+    """Prepend speaker label to segment text for SRT/VTT output."""
+    result = []
+    for seg in segments:
+        speaker = seg.get("speaker")
+        if not speaker:
+            result.append(seg)
+            continue
+        s = dict(seg)
+        if fmt == "vtt":
+            s["text"] = f"<v {speaker}>{seg['text'].strip()}</v>"
+        else:
+            s["text"] = f"[{speaker}]: {seg['text'].strip()}"
+        result.append(s)
+    return result
+
+
 def _cleanup(job_id: str):
     job_dir = f"/tmp/jobs/{job_id}"
     if os.path.isdir(job_dir):
@@ -173,11 +190,13 @@ def handler(job):
                 output["json"] = {"segments": result["segments"]}
             elif fmt == "srt":
                 sio = io.StringIO()
-                WriteSRT(".").write_result(result, file=sio, options=subtitle_options)
+                enriched = {"segments": _inject_speakers(result["segments"], "srt")}
+                WriteSRT(".").write_result(enriched, file=sio, options=subtitle_options)
                 output["srt"] = sio.getvalue()
             elif fmt == "vtt":
                 sio = io.StringIO()
-                WriteVTT(".").write_result(result, file=sio, options=subtitle_options)
+                enriched = {"segments": _inject_speakers(result["segments"], "vtt")}
+                WriteVTT(".").write_result(enriched, file=sio, options=subtitle_options)
                 output["vtt"] = sio.getvalue()
             else:
                 logger.warning(f"Unknown output format '{fmt}', skipping.")

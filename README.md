@@ -146,15 +146,17 @@ curl -X POST "https://api.runpod.ai/v2/{ENDPOINT_ID}/run" \
 }
 ```
 
-**`output_format: ["srt", "vtt"]`:**
+**`output_format: ["srt", "vtt"]` с `diarization: true`:**
 
 ```json
 {
   "detected_language": "ru",
-  "srt": "1\n00:00:00,000 --> 00:00:04,500\nПривет, как дела?\n\n",
-  "vtt": "WEBVTT\n\n00:00:00.000 --> 00:00:04.500\nПривет, как дела?\n\n"
+  "srt": "1\n00:00:00,000 --> 00:00:04,500\n[SPEAKER_00]: Привет, как дела?\n\n2\n00:00:05,100 --> 00:00:09,200\n[SPEAKER_01]: Всё хорошо, спасибо.\n\n",
+  "vtt": "WEBVTT\n\n00:00:00.000 --> 00:00:04.500\n<v SPEAKER_00>Привет, как дела?</v>\n\n00:00:05.100 --> 00:00:09.200\n<v SPEAKER_01>Всё хорошо, спасибо.</v>\n\n"
 }
 ```
+
+> Speaker метки в SRT/VTT появляются только при `diarization: true`. Без диаризации текст сегментов остаётся без изменений.
 
 ## Test script
 

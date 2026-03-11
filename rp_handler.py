@@ -190,12 +190,12 @@ def handler(job):
                 output["json"] = {"segments": result["segments"]}
             elif fmt == "srt":
                 sio = io.StringIO()
-                enriched = {"segments": _inject_speakers(result["segments"], "srt")}
+                enriched = {"segments": _inject_speakers(result["segments"], "srt"), "language": detected_language}
                 WriteSRT(".").write_result(enriched, file=sio, options=subtitle_options)
                 output["srt"] = sio.getvalue()
             elif fmt == "vtt":
                 sio = io.StringIO()
-                enriched = {"segments": _inject_speakers(result["segments"], "vtt")}
+                enriched = {"segments": _inject_speakers(result["segments"], "vtt"), "language": detected_language}
                 WriteVTT(".").write_result(enriched, file=sio, options=subtitle_options)
                 output["vtt"] = sio.getvalue()
             else:

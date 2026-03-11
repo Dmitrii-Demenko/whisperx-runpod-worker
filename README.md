@@ -29,21 +29,42 @@ RunPod Serverless worker for [WhisperX](https://github.com/m-bain/whisperX) — 
 
 ## Build
 
+The build is split into two images to keep code iteration fast:
+
+- **`Dockerfile.base`** — heavy base: CUDA, Python, PyTorch, all models (~15 GB). Build once, rarely rebuild.
+- **`Dockerfile`** — thin app layer: just copies `rp_handler.py` + `rp_schema.py` on top of the base. Builds in seconds.
+
+### Step 1 — Build and push the base image (once, or when dependencies change)
+
 ```bash
 export HF_TOKEN=hf_xxxxxxxxxxxxxxxx   # your Hugging Face read token
 
 docker build \
   --platform linux/amd64 \
   --secret id=hf_token,env=HF_TOKEN \
-  -t your-dockerhub-username/whisperx-worker:latest \
-  .
+  -t your-dockerhub-username/whisperx-base:latest \
+  -f Dockerfile.base \
+  . && \
+docker push your-dockerhub-username/whisperx-base:latest
 ```
 
-The build will take **10–20 minutes** depending on your connection speed. It downloads:
+This takes **10–20 minutes** and downloads:
 - `Systran/faster-whisper-large-v3`
 - `pyannote/speaker-diarization-community-1` + `pyannote/segmentation-3.0`
 - `jonatasgrosman/wav2vec2-large-xlsr-53-russian` (alignment model pre-cached for Russian)
 - NLTK `punkt_tab` tokenizer
+
+### Step 2 — Build and push the worker image (on every code change)
+
+```bash
+docker build \
+  --platform linux/amd64 \
+  -t your-dockerhub-username/whisperx-worker:latest \
+  . && \
+docker push your-dockerhub-username/whisperx-worker:latest
+```
+
+This takes **~5 seconds** and pushes only the handler layer (~50 KB).
 
 ## Push & Deploy
 

@@ -31,11 +31,16 @@ RUN python3 -m pip install --break-system-packages --no-cache-dir \
     "omegaconf>=2.3.0" "pandas>=2.2.3" "pyannote-audio>=4.0.0" \
     "huggingface-hub<1.0.0" "transformers>=4.48.0"
 
-# Pre-download models into the image (requires HF_TOKEN as a build secret).
-# Pass via: docker build --secret id=hf_token,src=<(echo $HF_TOKEN) ...
+# Pre-download models into the image.
+# Local build:  docker build --secret id=hf_token,env=HF_TOKEN ...
+# RunPod build: set HF_TOKEN as a build argument in the RunPod UI.
+ARG HF_TOKEN=""
 COPY builder/download_models.sh /builder/download_models.sh
 RUN chmod +x /builder/download_models.sh
-RUN --mount=type=secret,id=hf_token /builder/download_models.sh
+RUN --mount=type=secret,id=hf_token \
+    HF_TOKEN_SECRET=$(cat /run/secrets/hf_token 2>/dev/null || true); \
+    export HF_TOKEN="${HF_TOKEN_SECRET:-${HF_TOKEN}}"; \
+    /builder/download_models.sh
 
 # Copy the VAD model to torch cache (whisperx looks there at runtime)
 RUN mkdir -p /root/.cache/torch && \

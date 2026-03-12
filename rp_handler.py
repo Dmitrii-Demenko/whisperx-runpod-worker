@@ -49,6 +49,22 @@ ASR_MODEL = whisperx.load_model(
 )
 logger.info("Whisper model loaded and ready.")
 
+# Pre-download pyannote diarization model at startup (requires HF_TOKEN env var).
+# This avoids download latency on the first diarization job.
+if HF_TOKEN:
+    logger.info("HF_TOKEN found — pre-downloading pyannote/speaker-diarization-community-1...")
+    try:
+        from pyannote.audio import Pipeline as _Pipeline
+        _Pipeline.from_pretrained(
+            "pyannote/speaker-diarization-community-1",
+            use_auth_token=HF_TOKEN,
+        )
+        logger.info("Pyannote model ready.")
+    except Exception as _e:
+        logger.warning(f"Could not pre-download pyannote model: {_e}")
+else:
+    logger.warning("HF_TOKEN not set — pyannote diarization model will be downloaded on first use (or will fail if model is gated).")
+
 
 # ---------------------------------------------------------------------------
 # Helpers

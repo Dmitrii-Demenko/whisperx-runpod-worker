@@ -49,21 +49,22 @@ ASR_MODEL = whisperx.load_model(
 )
 logger.info("Whisper model loaded and ready.")
 
-# Pre-download pyannote diarization model at startup (requires HF_TOKEN env var).
-# This avoids download latency on the first diarization job.
+# Pre-load pyannote diarization model once at startup (requires HF_TOKEN env var).
+# Reused across all jobs — avoids ~30s reload penalty per request.
+DIARIZE_MODEL = None
 if HF_TOKEN:
-    logger.info("HF_TOKEN found — pre-downloading pyannote/speaker-diarization-community-1...")
+    logger.info("HF_TOKEN found — loading pyannote/speaker-diarization-community-1...")
     try:
-        from pyannote.audio import Pipeline as _Pipeline
-        _Pipeline.from_pretrained(
-            "pyannote/speaker-diarization-community-1",
-            use_auth_token=HF_TOKEN,
+        DIARIZE_MODEL = DiarizationPipeline(
+            model_name="pyannote/speaker-diarization-community-1",
+            token=HF_TOKEN,
+            device=DEVICE,
         )
-        logger.info("Pyannote model ready.")
+        logger.info("Pyannote diarization model loaded and ready.")
     except Exception as _e:
-        logger.warning(f"Could not pre-download pyannote model: {_e}")
+        logger.warning(f"Could not load pyannote model at startup: {_e}. Will retry per-job.")
 else:
-    logger.warning("HF_TOKEN not set — pyannote diarization model will be downloaded on first use (or will fail if model is gated).")
+    logger.warning("HF_TOKEN not set — diarization will be unavailable.")
 
 
 # ---------------------------------------------------------------------------
@@ -160,35 +161,45 @@ def handler(job):
                 align_model, align_metadata = whisperx.load_align_model(
                     detected_language, DEVICE
                 )
-                result = whisperx.align(
-                    result["segments"],
-                    align_model,
-                    align_metadata,
-                    audio,
-                    DEVICE,
-                    return_char_alignments=False,
-                )
-                del align_model
-                gc.collect()
-                torch.cuda.empty_cache()
-                logger.info("Alignment done.")
+                try:
+                    result = whisperx.align(
+                        result["segments"],
+                        align_model,
+                        align_metadata,
+                        audio,
+                        DEVICE,
+                        return_char_alignments=False,
+                    )
+                    logger.info("Alignment done.")
+                except (IndexError, RuntimeError) as align_err:
+                    logger.warning(
+                        f"Alignment failed for language '{detected_language}': {align_err}. "
+                        "Continuing without word-level timestamps."
+                    )
+                finally:
+                    del align_model
+                    gc.collect()
+                    torch.cuda.empty_cache()
             else:
                 logger.warning(
                     f"No alignment model for language '{detected_language}', skipping alignment."
                 )
 
         if diarization:
-            token = HF_TOKEN or None
-            diarize_model = DiarizationPipeline(
-                model_name="pyannote/speaker-diarization-community-1",
-                token=token,
-                device=DEVICE,
-            )
+            if DIARIZE_MODEL is not None:
+                diarize_model = DIARIZE_MODEL
+                logger.info("Using pre-loaded diarization model.")
+            else:
+                logger.info("Loading diarization model on-demand...")
+                diarize_model = DiarizationPipeline(
+                    model_name="pyannote/speaker-diarization-community-1",
+                    token=HF_TOKEN or None,
+                    device=DEVICE,
+                )
             diarize_segments = diarize_model(
                 audio, min_speakers=min_speakers, max_speakers=max_speakers
             )
             result = assign_word_speakers(diarize_segments, result)
-            del diarize_model
             gc.collect()
             torch.cuda.empty_cache()
             logger.info("Diarization done.")
